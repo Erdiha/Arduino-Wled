@@ -1,11 +1,13 @@
 #include <esp_now.h>
 #include <WiFi.h>
 #include <HTTPClient.h>
-
+#define SSID YOUR_SSID 
+#define PASSWORD YOUR_PASSWORD
+#define IPAddr YOUR_IP_ADDRESS
 // Replace with the WiFi credentials and WLED IP address
-const char* ssid = "fast_af_boi";
-const char* password = "Rapunzel123Rapunzel";
-const char* wled_ip = "192.168.50.192"; // Replace with your WLED ESP32 IP address
+const char* ssid =SSID;
+const char* password = PASSWORD;
+const char* wled_ip = IPAddr; // Replace with your WLED ESP32 IP address
 
 // MAC address of the receiver board
 uint8_t receiverAddress[] = {0xFC, 0xB4, 0x67, 0xF6, 0x46, 0x6C};
@@ -67,7 +69,7 @@ void loop() {
         esp_now_send(receiverAddress, (uint8_t *) &myData, sizeof(myData));
         sendToWLED(true);
         Serial.println("Motion Detected!");
-        delay(300); // Wait for 10 seconds
+        delay(3000); // Wait for 10 seconds
         sendToWLED(false); // Turn off the light after 10 seconds
         Serial.println("Light Off.");
     } else {

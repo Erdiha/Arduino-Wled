@@ -1,13 +1,12 @@
 #include <esp_now.h>
 #include <WiFi.h>
 #include <HTTPClient.h>
-#define SSID YOUR_SSID 
-#define PASSWORD YOUR_PASSWORD
-#define IPAddr YOUR_IP_ADDRESS
+#include "../config.h"
+
 // Replace with the WiFi credentials and WLED IP address
-const char* ssid =SSID;
-const char* password = PASSWORD;
-const char* wled_ip = IPAddr; // Replace with your WLED ESP32 IP address
+const char* ssid = wifi_name;
+const char* password = wifi_password;
+const char* wled_ip = ip_address; // Replace with your WLED ESP32 IP address
 
 // MAC address of the receiver board
 uint8_t receiverAddress[] = {0xFC, 0xB4, 0x67, 0xF6, 0x46, 0x6C};

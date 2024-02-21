@@ -1,15 +1,18 @@
 #include <esp_now.h>
 #include <WiFi.h>
 #include <HTTPClient.h>
-#include "../config.h"
-
-// Replace with the WiFi credentials and WLED IP address
+#include "../config.h" // Make sure this path is correct based on your project structure
+#include <cstdint>
+// Declaration of functions before use
+void initWiFi();
+void sendToWLED(bool motionDetected);
+extern uint8_t macAddress[];
+// Global Variables
 const char* ssid = wifi_name;
 const char* password = wifi_password;
-const char* wled_ip = ip_address; // Replace with your WLED ESP32 IP address
+const char* wled_ip = ip_address; 
+extern uint8_t macAddress[6]; // Not strictly necessary in this case, but good practice for clarity
 
-// MAC address of the receiver board
-uint8_t receiverAddress[] = {0xFC, 0xB4, 0x67, 0xF6, 0x46, 0x6C};
 
 typedef struct struct_message {
     int motionDetected;
@@ -17,22 +20,56 @@ typedef struct struct_message {
 
 struct_message myData;
 
-void setup() {
-    Serial.begin(115200);
+// Function Definitions
+
+// Function to handle WiFi connection and reconnection
+void initWiFi() {
     WiFi.begin(ssid, password);
     while (WiFi.status() != WL_CONNECTED) {
         delay(1000);
-        Serial.println("Connecting to WiFi...");
+        Serial.println("Reconnecting to WiFi...");
     }
+    Serial.println("Connected to WiFi");
+}
 
+// Function to control WLED based on motion detection
+void sendToWLED(bool motionDetected) {
+    if(WiFi.status() == WL_CONNECTED) {
+        HTTPClient http;
+        http.begin("http://" + String(wled_ip) + "/json/state");
+        http.addHeader("Content-Type", "application/json");
+        String payload = "{\"on\":";
+        payload += motionDetected ? "true" : "false";
+        payload += ", \"bri\":128}";
+
+        int httpResponseCode = http.PUT(payload);
+        if (httpResponseCode > 0) {
+            String response = http.getString();
+            Serial.println(httpResponseCode);
+            Serial.println(response);
+        } else {
+            Serial.println("Error on sending PUT");
+        }
+        http.end();
+    } else {
+        Serial.println("WiFi not connected. Cannot send to WLED.");
+    }
+}
+
+// Setup and Loop
+
+void setup() {
+    Serial.begin(115200);
+    initWiFi(); 
     WiFi.mode(WIFI_STA);
+
     if (esp_now_init() != ESP_OK) {
         Serial.println("Error initializing ESP-NOW");
         return;
     }
 
     esp_now_peer_info_t peerInfo;
-    memcpy(peerInfo.peer_addr, receiverAddress, 6);
+    memcpy(peerInfo.peer_addr, macAddress, 6);
     peerInfo.channel = 0;  
     peerInfo.encrypt = false;
     if (esp_now_add_peer(&peerInfo) != ESP_OK) {
@@ -43,37 +80,22 @@ void setup() {
     pinMode(13, INPUT);
 }
 
-void sendToWLED(bool motionDetected) {
-    HTTPClient http;
-    http.begin("http://" + String(wled_ip) + "/json/state");
-    http.addHeader("Content-Type", "application/json");
-    String payload = "{\"on\":";
-    payload += motionDetected ? "true" : "false";
-    payload += ", \"bri\":128}"; // Customize as needed
-
-    int httpResponseCode = http.PUT(payload);
-    if (httpResponseCode > 0) {
-        String response = http.getString();
-        Serial.println(httpResponseCode);
-        Serial.println(response);
-    } else {
-        Serial.println("Error on sending PUT");
-    }
-    http.end();
-}
 void loop() {
+    if(WiFi.status() != WL_CONNECTED) {
+        initWiFi();
+    }
+
     int motionStatus = digitalRead(13);
     if (motionStatus == HIGH) {
         myData.motionDetected = 1;
-        esp_now_send(receiverAddress, (uint8_t *) &myData, sizeof(myData));
+        esp_now_send(macAddress, (uint8_t *) &myData, sizeof(myData));
         sendToWLED(true);
         Serial.println("Motion Detected!");
-        delay(3000); // Wait for 10 seconds
-        sendToWLED(false); // Turn off the light after 10 seconds
+        delay(30000);
+        sendToWLED(false);
         Serial.println("Light Off.");
     } else {
         myData.motionDetected = 0;
-        // sendToWLED(false); // This line can be commented out as the light will be turned off after 10 seconds.
         Serial.println("No Motion.");
     }
     delay(1000);
